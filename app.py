@@ -92,7 +92,7 @@ def gerar_qrcode(url):
 
 
 def parse_texto_simples(texto):
-    """Converte o texto simples retornado pela IA em estrutura de prova."""
+    """Lê o texto retornado pelo ChatGPT/Gemini e transforma na estrutura de dados da prova."""
     questoes = []
     blocos = re.split(r"\n(?=\d+[\.\)])", texto.strip())
 
@@ -146,13 +146,12 @@ prova_param = params.get("prova_id", None)
 provas_cadastradas = carregar_provas()
 
 if prova_param:
-    # Decode do nome da formação recebida da URL
     formacao_nome = urllib.parse.unquote(prova_param)
 
     # =========================================================================
     # MÓDULO DO ALUNO (ACESSO VIA QR CODE)
     # =========================================================================
-    st.header(f"📝 Avaliação de Conhecimento")
+    st.header("📝 Avaliação de Conhecimento")
     st.subheader(f"Formação: **{formacao_nome}**")
     st.caption("Responda às 5 questões abaixo (20 pontos cada). Total: 100 pts.")
     st.divider()
@@ -267,83 +266,98 @@ else:
 
     tab_criar, tab_provas, tab_resultados = st.tabs(
         [
-            "➕ Criar Prova via Resumo (Sem JSON)",
+            "✨ Criar Prova (Copiar e Colar)",
             "📋 Provas & QR Code",
             "📊 Resultados & Excel",
         ]
     )
 
     with tab_criar:
-        st.subheader("1. Identificação da Formação")
+        st.subheader("1. Identificação")
         nome_form = st.text_input(
             "Nome da Formação:",
-            placeholder="Ex: Sistema 5S",
+            placeholder="Ex: Treinamento de Segurança do Trabalho",
         )
 
-        st.subheader("2. Gerar Prompt para IA")
-        st.caption(
-            "Cole o resumo/conteúdo da sua aula abaixo para gerar o prompt perfeito:"
-        )
-
+        st.subheader("2. Gerar Prompt para o ChatGPT/Gemini")
         resumo_aula = st.text_area(
-            "Cole aqui o resumo/conteúdo da sua aula:",
+            "Cole o resumo da sua aula aqui:",
             height=120,
-            placeholder="Ex: No treinamento de hoje vimos o conceito dos 5S: Seiri (utilização), Seiton (organização), Seiso (limpeza), Seiketsu (padronização) e Shitsuke (disciplina)...",
+            placeholder="Ex: O treinamento abordou normas de segurança NR-10 e uso de EPIs...",
         )
 
-        prompt_gerado = f"""Com base no conteúdo de treinamento a seguir, crie exatamente 5 questões de múltipla escolha.
-Cada questão deve ter exatamente 4 alternativas (A, B, C, D) e 1 resposta correta exata.
+        prompt_pronto = f"""Você é um instrutor especialista. Com base no resumo abaixo, crie exatamente 5 questões de múltipla escolha.
+Cada questão deve ter 4 opções (A, B, C, D) e indicar a resposta correta.
 
-FORMATO EXIGIDO (Não inclua introduções, explicações nem marcadores extras):
+RESUMO DA AULA:
+{resumo_aula if resumo_aula else '[Cole seu resumo aqui]'}
 
-1. Pergunta da questão 1?
-A) Alternativa 1
-B) Alternativa 2
-C) Alternativa 3
-D) Alternativa 4
-Resposta: A) Alternativa 1
+RESPONDA EXATAMENTE NESTE FORMATO (sem adicionar texto antes ou depois):
 
-2. Pergunta da questão 2?
-A) Alternativa 1
-B) Alternativa 2
-C) Alternativa 3
-D) Alternativa 4
-Resposta: B) Alternativa 2
+1. Texto da primeira pergunta?
+A) Opção 1
+B) Opção 2
+C) Opção 3
+D) Opção 4
+Resposta: A) Opção 1
 
-(Siga este exato padrão até a questão 5)
+2. Texto da segunda pergunta?
+A) Opção 1
+B) Opção 2
+C) Opção 3
+D) Opção 4
+Resposta: B) Opção 2
 
-CONTEÚDO BASE DO TREINAMENTO:
-{resumo_aula if resumo_aula.strip() else '[Cole seu resumo no campo acima]'}"""
+3. Texto da terceira pergunta?
+A) Opção 1
+B) Opção 2
+C) Opção 3
+D) Opção 4
+Resposta: C) Opção 3
 
-        with st.expander("📋 Clique aqui para visualizar e copiar o Prompt para o ChatGPT/Gemini"):
-            st.code(prompt_gerado, language="text")
+4. Texto da quarta pergunta?
+A) Opção 1
+B) Opção 2
+C) Opção 3
+D) Opção 4
+Resposta: D) Opção 4
 
-        st.subheader("3. Cole a Resposta da IA")
-        st.caption("Cole abaixo as 5 questões geradas pela IA:")
+5. Texto da quinta pergunta?
+A) Opção 1
+B) Opção 2
+C) Opção 3
+D) Opção 4
+Resposta: A) Opção 1"""
 
-        texto_questoes = st.text_area(
-            "Cole aqui o texto gerado pela IA:",
+        st.info(
+            "💡 **Passo 1:** Copie o texto do quadro abaixo e cole no seu ChatGPT ou Gemini gratuito:"
+        )
+        st.code(prompt_pronto, language="markdown")
+
+        st.subheader("3. Importar Resposta da IA")
+        resposta_ia = st.text_area(
+            "💡 **Passo 2:** Cole aqui a resposta gerada pelo ChatGPT/Gemini:",
             height=200,
             placeholder="1. Pergunta...\nA) ...\nB) ...\nC) ...\nD) ...\nResposta: A) ...",
         )
 
-        if st.button("🚀 Criar Prova e Gerar QR Code", type="primary"):
+        if st.button("💾 Salvar Prova e Gerar QR Code", type="primary"):
             if not nome_form.strip():
-                st.error("⚠️ Digite o nome da formação.")
-            elif not texto_questoes.strip():
-                st.error("⚠️ Cole o texto das questões geradas pela IA.")
+                st.error("⚠️ Preencha o nome da formação.")
+            elif not resposta_ia.strip():
+                st.error("⚠️ Cole a resposta gerada pela IA.")
             else:
-                parsed = parse_texto_simples(texto_questoes)
-                if len(parsed) != 5:
-                    st.error(
-                        f"⚠️ O sistema identificou {len(parsed)} questão(ões). Certifique-se de colar exatamente 5 questões no formato solicitado."
-                    )
-                else:
+                parsed = parse_texto_simples(resposta_ia.strip())
+                if len(parsed) == 5:
                     salvar_prova(nome_form.strip(), parsed)
                     st.success(
-                        f"✅ Prova '{nome_form.strip()}' criada com sucesso!"
+                        f"🎉 Prova '{nome_form.strip()}' cadastrada com sucesso!"
                     )
                     st.rerun()
+                else:
+                    st.error(
+                        f"⚠️ Foram identificadas {len(parsed)} questões. O formato precisa conter exatamente 5 questões conforme a instrução."
+                    )
 
     with tab_provas:
         if not provas_cadastradas:
@@ -355,18 +369,14 @@ CONTEÚDO BASE DO TREINAMENTO:
 
             if formacao_sel:
                 st.divider()
-                st.subheader(f"📲 QR Code de Acesso")
+                st.subheader("📲 QR Code de Acesso")
 
-                # URL Padrão Direta e Estável
                 url_padrao = "https://cqtfxtjeduyxc.streamlit.app"
-
                 app_url_base = st.text_input(
                     "URL do Streamlit Cloud:",
                     value=url_padrao,
-                    help="Endereço público do seu aplicativo no Streamlit",
                 )
 
-                # Codificação para garantir que o celular abra a URL sem erros
                 param_seguro = urllib.parse.quote(formacao_sel)
                 url_aluno = (
                     f"{app_url_base.rstrip('/')}/?prova_id={param_seguro}"
@@ -384,12 +394,9 @@ CONTEÚDO BASE DO TREINAMENTO:
                 with col_q2:
                     st.markdown("**Link direto:**")
                     st.code(url_aluno)
-                    st.caption(
-                        "💡 O QR Code acima utiliza codificação segura para evitar erros de conexão no celular."
-                    )
 
                 st.divider()
-                st.markdown("### Questões Cadastradas:")
+                st.markdown("### Questões Geradas:")
                 for q in provas_cadastradas[formacao_sel]["questoes"]:
                     st.markdown(f"**{q['id']}. {q['pergunta']}**")
                     for opt in q["opcoes"]:
