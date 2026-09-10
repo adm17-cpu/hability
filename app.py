@@ -20,7 +20,7 @@ st.set_page_config(
 ARQUIVO_PROVAS = "provas_bd.json"
 ARQUIVO_RESULTADOS = "resultados_bd.csv"
 
-# Prova padrão inicial (baseada no documento 5S)
+# Prova padrão inicial (baseada no documento dos 5 Sensos)
 PROVA_PADRAO_5S = {
     "Programa 5S - Habilidades Profissionais": {
         "criado_em": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -31,8 +31,8 @@ PROVA_PADRAO_5S = {
                 "opcoes": [
                     "A) Manter o ambiente decorado e organizado.",
                     "B) Eliminar itens desnecessários e reduzir distrações.",
-                    "C) Praticar atividades físicas no ambiente.",
-                    "D) Criar rotinas rígidas de limpeza.",
+                    "C) Praticar atividades físicas no ambiente de trabalho.",
+                    "D) Criar rotinas rígidas de limpeza diária.",
                 ],
                 "resposta_correta": "B) Eliminar itens desnecessários e reduzir distrações.",
             },
@@ -42,7 +42,7 @@ PROVA_PADRAO_5S = {
                 "opcoes": [
                     "A) Tudo deve ficar guardado em armários fechados.",
                     "B) Cada coisa deve ter seu lugar para economizar tempo.",
-                    "C) A limpeza deve ser feita diariamente.",
+                    "C) A limpeza deve ser feita apenas ao final da semana.",
                     "D) Apenas ferramentas novas devem ser utilizadas.",
                 ],
                 "resposta_correta": "B) Cada coisa deve ter seu lugar para economizar tempo.",
@@ -51,34 +51,34 @@ PROVA_PADRAO_5S = {
                 "id": 3,
                 "pergunta": "No Senso de Limpeza (Seiso), a responsabilidade pela conservação dos equipamentos é:",
                 "opcoes": [
-                    "A) Exclusiva da equipe de limpeza.",
-                    "B) Do gerente de operações.",
-                    "C) Coletiva de todos os usuários dos recursos.",
-                    "D) Apenas de quem sujou o equipamento.",
+                    "A) Exclusiva da equipe de serviços gerais.",
+                    "B) Do gerente do setor de operações.",
+                    "C) Coletiva de todos os usuários, pensando na comunidade.",
+                    "D) Apenas de quem sujou o equipamento por último.",
                 ],
-                "resposta_correta": "C) Coletiva de todos os usuários dos recursos.",
+                "resposta_correta": "C) Coletiva de todos os usuários, pensando na comunidade.",
             },
             {
                 "id": 4,
-                "pergunta": "O Senso de Saúde (Seiketsu) abrange práticas como:",
+                "pergunta": "O Senso de Saúde (Seiketsu) abrange práticas essenciais como:",
                 "opcoes": [
-                    "A) Apenas fazer exames admissionais.",
-                    "B) Hábitos saudáveis, cuidados com o corpo e mente.",
-                    "C) Focar exclusivamente no desempenho de máquinas.",
-                    "D) Evitar pausas durante a rotina de trabalho.",
+                    "A) Apenas realizar exames admissionais periódicos.",
+                    "B) Hábitos saudáveis, cuidados com o corpo, mente e organização.",
+                    "C) Focar exclusivamente no desempenho contínuo das máquinas.",
+                    "D) Evitar pausas de descanso durante a jornada de trabalho.",
                 ],
-                "resposta_correta": "B) Hábitos saudáveis, cuidados com o corpo e mente.",
+                "resposta_correta": "B) Hábitos saudáveis, cuidados com o corpo, mente e organização.",
             },
             {
                 "id": 5,
                 "pergunta": "O Senso de Autodisciplina (Shitsuke) é definido por:",
                 "opcoes": [
-                    "A) Cumprir regras apenas sob supervisão direta.",
-                    "B) Criar novos hábitos e manter a consistência continuamente.",
-                    "C) Nunca errar nas tarefas diárias.",
-                    "D) Ter punições para quem descumprir procedimentos.",
+                    "A) Cumprir procedimentos apenas sob supervisão direta.",
+                    "B) Criar novos hábitos, ter consistência e retomar se falhar.",
+                    "C) Garantir que ninguém cometa erros nas tarefas.",
+                    "D) Aplicar punições para descumprimento de normas.",
                 ],
-                "resposta_correta": "B) Criar novos hábitos e manter a consistência continuamente.",
+                "resposta_correta": "B) Criar novos hábitos, ter consistência e retomar se falhar.",
             },
         ],
     }
@@ -98,7 +98,6 @@ def carregar_provas():
         except Exception:
             pass
 
-    # Caso o arquivo não exista ou esteja vazio, cria a prova padrão
     salvar_todas_provas(PROVA_PADRAO_5S)
     return PROVA_PADRAO_5S
 
@@ -165,7 +164,7 @@ def gerar_qrcode(url):
 
 
 def parse_texto_simples(texto):
-    """Lê o texto gerado pelo ChatGPT/Gemini e transforma em lista de questões."""
+    """Lê o texto retornado pela IA e estrutura como questões válidas."""
     questoes = []
     blocos = re.split(r"\n(?=\d+[\.\)])", texto.strip())
 
@@ -219,27 +218,29 @@ prova_param = params.get("prova_id", None)
 provas_cadastradas = carregar_provas()
 
 if prova_param:
-    # Decodificação segura do parâmetro recebido via URL
+    # Decodificação segura do nome da prova recebido via URL
     formacao_nome = urllib.parse.unquote(prova_param).strip()
 
-    # =========================================================================
-    # MÓDULO DO ALUNO (ACESSO VIA QR CODE)
-    # =========================================================================
-    st.header("📝 Avaliação de Conhecimento")
-    st.subheader(f"Formação: **{formacao_nome}**")
-    st.caption("Responda às 5 questões abaixo (20 pontos cada). Total: 100 pts.")
-    st.divider()
-
-    # Busca permissiva para ignorar diferenças de maiúsculas/minúsculas
+    # Busca sem diferenciar maiúsculas e minúsculas
     chave_encontrada = None
     for chave in provas_cadastradas.keys():
         if chave.strip().lower() == formacao_nome.lower():
             chave_encontrada = chave
             break
 
+    # =========================================================================
+    # MÓDULO DO ALUNO (ACESSO VIA QR CODE / LINK)
+    # =========================================================================
+    st.header("📝 Avaliação de Conhecimento")
+    st.subheader(f"Formação: **{formacao_nome}**")
+    st.caption("Responda às 5 questões abaixo (20 pontos cada). Total: 100 pts.")
+    st.divider()
+
     if not chave_encontrada:
-        st.error("⚠️ A prova solicitada não foi encontrada no banco de dados.")
-        st.info("Por favor, verifique se a prova foi salva no painel do instrutor.")
+        st.error("⚠️ A prova solicitada não foi encontrada no sistema.")
+        st.info(
+            "Verifique se o nome da prova está correto ou solicite o novo QR Code ao instrutor."
+        )
     else:
         questoes = provas_cadastradas[chave_encontrada]["questoes"]
 
@@ -363,7 +364,7 @@ else:
         resumo_aula = st.text_area(
             "Cole o resumo da sua aula aqui:",
             height=120,
-            placeholder="Ex: Treinamento sobre os 5 Sensos (Utilização, Ordenação, Limpeza, Saúde, Autodisciplina)...",
+            placeholder="Ex: Aula abordando Senso de Utilização, Ordenação, Limpeza, Saúde e Autodisciplina...",
         )
 
         prompt_pronto = f"""Você é um instrutor especialista. Com base no resumo abaixo, crie exatamente 5 questões de múltipla escolha.
@@ -409,10 +410,10 @@ C) Opção 3
 D) Opção 4
 Resposta: A) Opção 1"""
 
-        st.info("💡 **Passo 1:** Copie o texto do quadro abaixo e cole no ChatGPT ou Gemini:")
+        st.info("💡 **Passo 1:** Copie o texto abaixo e cole na IA de sua preferência (ChatGPT/Gemini):")
         st.code(prompt_pronto, language="markdown")
 
-        st.subheader("3. Importar Resposta da IA")
+        st.subheader("3. Importar Resposta")
         resposta_ia = st.text_area(
             "💡 **Passo 2:** Cole aqui a resposta gerada pela IA:",
             height=200,
@@ -432,7 +433,7 @@ Resposta: A) Opção 1"""
                     st.rerun()
                 else:
                     st.error(
-                        f"⚠️ Foram identificadas {len(parsed)} questões. O formato precisa ter exatamente 5 questões no modelo exigido."
+                        f"⚠️ Foram identificadas {len(parsed)} questões. É necessário seguir o padrão de 5 questões."
                     )
 
     with tab_provas:
@@ -447,15 +448,23 @@ Resposta: A) Opção 1"""
                 st.divider()
                 st.subheader("📲 QR Code de Acesso")
 
-                # URL base ajustada
-                url_padrao = "https://cqtfxtjeduyxc.streamlit.app"
-                
+                # Tenta capturar automaticamente a URL real da barra de endereços do navegador
+                host_detectado = ""
+                try:
+                    host_headers = st.context.headers.get("Host", "")
+                    if host_headers:
+                        host_detectado = f"https://{host_headers}"
+                except Exception:
+                    pass
+
+                url_padrao = host_detectado if host_detectado else "https://cqtfxtjeduyxc.streamlit.app"
+
                 app_url_base = st.text_input(
-                    "URL do Streamlit Cloud (Confira se é o link do seu app):",
+                    "URL Base do seu App no Streamlit Cloud:",
                     value=url_padrao,
+                    help="Copie do seu navegador e cole aqui caso a URL gerada seja diferente do seu site real.",
                 )
 
-                # Formatador seguro de parâmetro de URL
                 param_seguro = urllib.parse.quote(formacao_sel.strip())
                 url_aluno = f"{app_url_base.rstrip('/')}/?prova_id={param_seguro}"
 
@@ -469,9 +478,11 @@ Resposta: A) Opção 1"""
                     )
 
                 with col_q2:
-                    st.markdown("**Link direto para teste do aluno:**")
+                    st.markdown("**Link gerado para o aluno:**")
                     st.code(url_aluno)
-                    st.caption("💡 Se ao escanear der erro, verifique se a URL informada acima corresponde exatamente à URL pública onde seu aplicativo está rodando.")
+                    st.caption(
+                        "📌 **Importante:** Sempre confirme se o início desse link é EXATAMENTE igual ao link que aparece na barra do seu navegador."
+                    )
 
                 st.divider()
                 st.markdown("### Questões Geradas:")
