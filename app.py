@@ -20,6 +20,70 @@ st.set_page_config(
 ARQUIVO_PROVAS = "provas_bd.json"
 ARQUIVO_RESULTADOS = "resultados_bd.csv"
 
+# Prova padrão inicial (baseada no documento 5S)
+PROVA_PADRAO_5S = {
+    "Programa 5S - Habilidades Profissionais": {
+        "criado_em": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "questoes": [
+            {
+                "id": 1,
+                "pergunta": "Qual é o foco principal do Senso de Utilização (Seiri)?",
+                "opcoes": [
+                    "A) Manter o ambiente decorado e organizado.",
+                    "B) Eliminar itens desnecessários e reduzir distrações.",
+                    "C) Praticar atividades físicas no ambiente.",
+                    "D) Criar rotinas rígidas de limpeza.",
+                ],
+                "resposta_correta": "B) Eliminar itens desnecessários e reduzir distrações.",
+            },
+            {
+                "id": 2,
+                "pergunta": "O Senso de Ordenação (Seiton) prega que:",
+                "opcoes": [
+                    "A) Tudo deve ficar guardado em armários fechados.",
+                    "B) Cada coisa deve ter seu lugar para economizar tempo.",
+                    "C) A limpeza deve ser feita diariamente.",
+                    "D) Apenas ferramentas novas devem ser utilizadas.",
+                ],
+                "resposta_correta": "B) Cada coisa deve ter seu lugar para economizar tempo.",
+            },
+            {
+                "id": 3,
+                "pergunta": "No Senso de Limpeza (Seiso), a responsabilidade pela conservação dos equipamentos é:",
+                "opcoes": [
+                    "A) Exclusiva da equipe de limpeza.",
+                    "B) Do gerente de operações.",
+                    "C) Coletiva de todos os usuários dos recursos.",
+                    "D) Apenas de quem sujou o equipamento.",
+                ],
+                "resposta_correta": "C) Coletiva de todos os usuários dos recursos.",
+            },
+            {
+                "id": 4,
+                "pergunta": "O Senso de Saúde (Seiketsu) abrange práticas como:",
+                "opcoes": [
+                    "A) Apenas fazer exames admissionais.",
+                    "B) Hábitos saudáveis, cuidados com o corpo e mente.",
+                    "C) Focar exclusivamente no desempenho de máquinas.",
+                    "D) Evitar pausas durante a rotina de trabalho.",
+                ],
+                "resposta_correta": "B) Hábitos saudáveis, cuidados com o corpo e mente.",
+            },
+            {
+                "id": 5,
+                "pergunta": "O Senso de Autodisciplina (Shitsuke) é definido por:",
+                "opcoes": [
+                    "A) Cumprir regras apenas sob supervisão direta.",
+                    "B) Criar novos hábitos e manter a consistência continuamente.",
+                    "C) Nunca errar nas tarefas diárias.",
+                    "D) Ter punições para quem descumprir procedimentos.",
+                ],
+                "resposta_correta": "B) Criar novos hábitos e manter a consistência continuamente.",
+            },
+        ],
+    }
+}
+
 
 # -----------------------------------------------------------------------------
 # PERSISTÊNCIA DE DADOS E UTILITÁRIOS
@@ -28,10 +92,20 @@ def carregar_provas():
     if os.path.exists(ARQUIVO_PROVAS):
         try:
             with open(ARQUIVO_PROVAS, "r", encoding="utf-8") as f:
-                return json.load(f)
+                dados = json.load(f)
+                if dados:
+                    return dados
         except Exception:
-            return {}
-    return {}
+            pass
+
+    # Caso o arquivo não exista ou esteja vazio, cria a prova padrão
+    salvar_todas_provas(PROVA_PADRAO_5S)
+    return PROVA_PADRAO_5S
+
+
+def salvar_todas_provas(provas_dict):
+    with open(ARQUIVO_PROVAS, "w", encoding="utf-8") as f:
+        json.dump(provas_dict, f, ensure_ascii=False, indent=4)
 
 
 def salvar_prova(titulo_formacao, questoes):
@@ -40,8 +114,7 @@ def salvar_prova(titulo_formacao, questoes):
         "criado_em": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "questoes": questoes,
     }
-    with open(ARQUIVO_PROVAS, "w", encoding="utf-8") as f:
-        json.dump(provas, f, ensure_ascii=False, indent=4)
+    salvar_todas_provas(provas)
 
 
 def carregar_resultados():
@@ -92,7 +165,7 @@ def gerar_qrcode(url):
 
 
 def parse_texto_simples(texto):
-    """Lê o texto retornado pelo ChatGPT/Gemini e transforma na estrutura de dados da prova."""
+    """Lê o texto gerado pelo ChatGPT/Gemini e transforma em lista de questões."""
     questoes = []
     blocos = re.split(r"\n(?=\d+[\.\)])", texto.strip())
 
@@ -146,7 +219,8 @@ prova_param = params.get("prova_id", None)
 provas_cadastradas = carregar_provas()
 
 if prova_param:
-    formacao_nome = urllib.parse.unquote(prova_param)
+    # Decodificação segura do parâmetro recebido via URL
+    formacao_nome = urllib.parse.unquote(prova_param).strip()
 
     # =========================================================================
     # MÓDULO DO ALUNO (ACESSO VIA QR CODE)
@@ -156,12 +230,18 @@ if prova_param:
     st.caption("Responda às 5 questões abaixo (20 pontos cada). Total: 100 pts.")
     st.divider()
 
-    if formacao_nome not in provas_cadastradas:
-        st.error(
-            "⚠️ A prova solicitada não foi encontrada ou o QR Code expirou."
-        )
+    # Busca permissiva para ignorar diferenças de maiúsculas/minúsculas
+    chave_encontrada = None
+    for chave in provas_cadastradas.keys():
+        if chave.strip().lower() == formacao_nome.lower():
+            chave_encontrada = chave
+            break
+
+    if not chave_encontrada:
+        st.error("⚠️ A prova solicitada não foi encontrada no banco de dados.")
+        st.info("Por favor, verifique se a prova foi salva no painel do instrutor.")
     else:
-        questoes = provas_cadastradas[formacao_nome]["questoes"]
+        questoes = provas_cadastradas[chave_encontrada]["questoes"]
 
         with st.form(key="form_aluno"):
             st.markdown("### 👤 Identificação do Aluno")
@@ -213,7 +293,7 @@ if prova_param:
 
                 registro = {
                     "Data_Hora": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    "Formacao": formacao_nome,
+                    "Formacao": chave_encontrada,
                     "Nome": nome.strip().title(),
                     "Sobrenome": sobrenome.strip().title(),
                     "Nome_Completo": nome_comp,
@@ -236,10 +316,10 @@ if prova_param:
                 col_m2.metric("Acertos", f"{acertos} de 5")
 
                 st.divider()
-                st.markdown(f"### 🏆 Ranking da Formação: **{formacao_nome}**")
+                st.markdown(f"### 🏆 Ranking da Formação: **{chave_encontrada}**")
 
                 df_todos = carregar_resultados()
-                df_form = df_todos[df_todos["Formacao"] == formacao_nome].copy()
+                df_form = df_todos[df_todos["Formacao"] == chave_encontrada].copy()
 
                 if not df_form.empty:
                     df_rank = df_form.sort_values(
@@ -276,14 +356,14 @@ else:
         st.subheader("1. Identificação")
         nome_form = st.text_input(
             "Nome da Formação:",
-            placeholder="Ex: Treinamento de Segurança do Trabalho",
+            placeholder="Ex: Programa 5S - Habilidades Profissionais",
         )
 
         st.subheader("2. Gerar Prompt para o ChatGPT/Gemini")
         resumo_aula = st.text_area(
             "Cole o resumo da sua aula aqui:",
             height=120,
-            placeholder="Ex: O treinamento abordou normas de segurança NR-10 e uso de EPIs...",
+            placeholder="Ex: Treinamento sobre os 5 Sensos (Utilização, Ordenação, Limpeza, Saúde, Autodisciplina)...",
         )
 
         prompt_pronto = f"""Você é um instrutor especialista. Com base no resumo abaixo, crie exatamente 5 questões de múltipla escolha.
@@ -329,14 +409,12 @@ C) Opção 3
 D) Opção 4
 Resposta: A) Opção 1"""
 
-        st.info(
-            "💡 **Passo 1:** Copie o texto do quadro abaixo e cole no seu ChatGPT ou Gemini gratuito:"
-        )
+        st.info("💡 **Passo 1:** Copie o texto do quadro abaixo e cole no ChatGPT ou Gemini:")
         st.code(prompt_pronto, language="markdown")
 
         st.subheader("3. Importar Resposta da IA")
         resposta_ia = st.text_area(
-            "💡 **Passo 2:** Cole aqui a resposta gerada pelo ChatGPT/Gemini:",
+            "💡 **Passo 2:** Cole aqui a resposta gerada pela IA:",
             height=200,
             placeholder="1. Pergunta...\nA) ...\nB) ...\nC) ...\nD) ...\nResposta: A) ...",
         )
@@ -350,13 +428,11 @@ Resposta: A) Opção 1"""
                 parsed = parse_texto_simples(resposta_ia.strip())
                 if len(parsed) == 5:
                     salvar_prova(nome_form.strip(), parsed)
-                    st.success(
-                        f"🎉 Prova '{nome_form.strip()}' cadastrada com sucesso!"
-                    )
+                    st.success(f"🎉 Prova '{nome_form.strip()}' cadastrada com sucesso!")
                     st.rerun()
                 else:
                     st.error(
-                        f"⚠️ Foram identificadas {len(parsed)} questões. O formato precisa conter exatamente 5 questões conforme a instrução."
+                        f"⚠️ Foram identificadas {len(parsed)} questões. O formato precisa ter exatamente 5 questões no modelo exigido."
                     )
 
     with tab_provas:
@@ -371,16 +447,17 @@ Resposta: A) Opção 1"""
                 st.divider()
                 st.subheader("📲 QR Code de Acesso")
 
+                # URL base ajustada
                 url_padrao = "https://cqtfxtjeduyxc.streamlit.app"
+                
                 app_url_base = st.text_input(
-                    "URL do Streamlit Cloud:",
+                    "URL do Streamlit Cloud (Confira se é o link do seu app):",
                     value=url_padrao,
                 )
 
-                param_seguro = urllib.parse.quote(formacao_sel)
-                url_aluno = (
-                    f"{app_url_base.rstrip('/')}/?prova_id={param_seguro}"
-                )
+                # Formatador seguro de parâmetro de URL
+                param_seguro = urllib.parse.quote(formacao_sel.strip())
+                url_aluno = f"{app_url_base.rstrip('/')}/?prova_id={param_seguro}"
 
                 col_q1, col_q2 = st.columns([1, 2])
                 with col_q1:
@@ -392,8 +469,9 @@ Resposta: A) Opção 1"""
                     )
 
                 with col_q2:
-                    st.markdown("**Link direto:**")
+                    st.markdown("**Link direto para teste do aluno:**")
                     st.code(url_aluno)
+                    st.caption("💡 Se ao escanear der erro, verifique se a URL informada acima corresponde exatamente à URL pública onde seu aplicativo está rodando.")
 
                 st.divider()
                 st.markdown("### Questões Geradas:")
