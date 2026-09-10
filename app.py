@@ -12,7 +12,7 @@ import streamlit as st
 # CONFIGURAÇÃO DA PÁGINA
 # -----------------------------------------------------------------------------
 st.set_page_config(
-    page_title="Sistema de Avaliação",
+    page_title="Sistema de Avaliação de Treinamentos",
     page_icon="📝",
     layout="wide",
 )
@@ -92,7 +92,7 @@ def gerar_qrcode(url):
 
 
 def parse_texto_simples(texto):
-    """Converte o texto digitado/colado em lista de perguntas."""
+    """Converte o texto simples retornado pela IA em estrutura de prova."""
     questoes = []
     blocos = re.split(r"\n(?=\d+[\.\)])", texto.strip())
 
@@ -139,7 +139,7 @@ def exportar_excel(df_resultados):
 
 
 # -----------------------------------------------------------------------------
-# ROTEAMENTO E LEITURA DE PARÂMETROS
+# ROTEAMENTO DA APLICAÇÃO (ALUNO vs INSTRUTOR)
 # -----------------------------------------------------------------------------
 params = st.query_params
 prova_param = params.get("prova_id", None)
@@ -150,7 +150,7 @@ if prova_param:
     formacao_nome = urllib.parse.unquote(prova_param)
 
     # =========================================================================
-    # MÓDULO DO ALUNO (VIA QR CODE)
+    # MÓDULO DO ALUNO (ACESSO VIA QR CODE)
     # =========================================================================
     st.header(f"📝 Avaliação de Conhecimento")
     st.subheader(f"Formação: **{formacao_nome}**")
@@ -267,38 +267,76 @@ else:
 
     tab_criar, tab_provas, tab_resultados = st.tabs(
         [
-            "➕ Criar Prova (Texto)",
+            "➕ Criar Prova via Resumo (Sem JSON)",
             "📋 Provas & QR Code",
             "📊 Resultados & Excel",
         ]
     )
 
     with tab_criar:
-        st.subheader("1. Identificação da Prova")
+        st.subheader("1. Identificação da Formação")
         nome_form = st.text_input(
             "Nome da Formação:",
-            placeholder="Ex: Sistema 5S (Use nomes simples sem caracteres especiais)",
+            placeholder="Ex: Sistema 5S",
         )
 
-        st.subheader("2. Cole as 5 Questões")
-        st.caption("Formato exigido: Pergunta, A, B, C, D e Resposta: ...")
+        st.subheader("2. Gerar Prompt para IA")
+        st.caption(
+            "Cole o resumo/conteúdo da sua aula abaixo para gerar o prompt perfeito:"
+        )
+
+        resumo_aula = st.text_area(
+            "Cole aqui o resumo/conteúdo da sua aula:",
+            height=120,
+            placeholder="Ex: No treinamento de hoje vimos o conceito dos 5S: Seiri (utilização), Seiton (organização), Seiso (limpeza), Seiketsu (padronização) e Shitsuke (disciplina)...",
+        )
+
+        prompt_gerado = f"""Com base no conteúdo de treinamento a seguir, crie exatamente 5 questões de múltipla escolha.
+Cada questão deve ter exatamente 4 alternativas (A, B, C, D) e 1 resposta correta exata.
+
+FORMATO EXIGIDO (Não inclua introduções, explicações nem marcadores extras):
+
+1. Pergunta da questão 1?
+A) Alternativa 1
+B) Alternativa 2
+C) Alternativa 3
+D) Alternativa 4
+Resposta: A) Alternativa 1
+
+2. Pergunta da questão 2?
+A) Alternativa 1
+B) Alternativa 2
+C) Alternativa 3
+D) Alternativa 4
+Resposta: B) Alternativa 2
+
+(Siga este exato padrão até a questão 5)
+
+CONTEÚDO BASE DO TREINAMENTO:
+{resumo_aula if resumo_aula.strip() else '[Cole seu resumo no campo acima]'}"""
+
+        with st.expander("📋 Clique aqui para visualizar e copiar o Prompt para o ChatGPT/Gemini"):
+            st.code(prompt_gerado, language="text")
+
+        st.subheader("3. Cole a Resposta da IA")
+        st.caption("Cole abaixo as 5 questões geradas pela IA:")
 
         texto_questoes = st.text_area(
-            "Texto da Prova:",
-            height=280,
-            placeholder="1. Qual o objetivo do 5S?\nA) Opção A\nB) Opção B\nC) Opção C\nD) Opção D\nResposta: A) Opção A",
+            "Cole aqui o texto gerado pela IA:",
+            height=200,
+            placeholder="1. Pergunta...\nA) ...\nB) ...\nC) ...\nD) ...\nResposta: A) ...",
         )
 
-        if st.button("🚀 Salvar Prova e Gerar QR Code", type="primary"):
+        if st.button("🚀 Criar Prova e Gerar QR Code", type="primary"):
             if not nome_form.strip():
                 st.error("⚠️ Digite o nome da formação.")
             elif not texto_questoes.strip():
-                st.error("⚠️ Cole o texto das questões.")
+                st.error("⚠️ Cole o texto das questões geradas pela IA.")
             else:
                 parsed = parse_texto_simples(texto_questoes)
                 if len(parsed) != 5:
                     st.error(
-                        f"⚠️ Foi identificado {len(parsed)} questão(ões). Cole exatamente 5 questões."
+                        f"⚠️ O sistema identificou {len(parsed)} questão(ões). Certifique-se de colar exatamente 5 questões no formato solicitado."
                     )
                 else:
                     salvar_prova(nome_form.strip(), parsed)
@@ -319,16 +357,16 @@ else:
                 st.divider()
                 st.subheader(f"📲 QR Code de Acesso")
 
-                # URL Padrão Direta Sem Erro de Acesso
+                # URL Padrão Direta e Estável
                 url_padrao = "https://cqtfxtjeduyxc.streamlit.app"
 
                 app_url_base = st.text_input(
                     "URL do Streamlit Cloud:",
                     value=url_padrao,
-                    help="Endereço público do seu aplicativo",
+                    help="Endereço público do seu aplicativo no Streamlit",
                 )
 
-                # Tratamento do parâmetro para URL segura no celular
+                # Codificação para garantir que o celular abra a URL sem erros
                 param_seguro = urllib.parse.quote(formacao_sel)
                 url_aluno = (
                     f"{app_url_base.rstrip('/')}/?prova_id={param_seguro}"
@@ -344,10 +382,10 @@ else:
                     )
 
                 with col_q2:
-                    st.markdown("**Link gerado:**")
+                    st.markdown("**Link direto:**")
                     st.code(url_aluno)
                     st.caption(
-                        "💡 Certifique-se de que o link acima começa com `https://...streamlit.app` e NÃO `share.streamlit.io`."
+                        "💡 O QR Code acima utiliza codificação segura para evitar erros de conexão no celular."
                     )
 
                 st.divider()
